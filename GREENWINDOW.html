@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><title>Green Window</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=UnifrakturCook:wght@700&display=swap">
+<style>
+:root{--bg:#09080a;--fg:#efe3c8;--mut:#a39880;--gold:#d4a24c;--grn:#39ff88;--red:#ff4455;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+html,body{height:100%;margin:0;background:var(--bg);color:var(--fg);font-family:"Trebuchet MS","Segoe UI",system-ui,sans-serif;overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none}
+canvas{position:fixed;inset:0;width:100%;height:100%;display:block}
+.ov{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:24px;background:rgba(9,8,10,.82);backdrop-filter:blur(6px);z-index:2}
+.ov{overflow-y:auto;justify-content:safe center;touch-action:pan-y}
+.ov.hide{display:none}
+.code{user-select:text;-webkit-user-select:text}
+a.btn{display:inline-block;text-decoration:none;font-weight:800;font-size:18px;color:#120d04;background:linear-gradient(90deg,#f1c76b,var(--gold));border-radius:999px;padding:16px 34px;box-shadow:0 0 28px rgba(212,162,76,.5);animation:pulse 1.4s infinite}
+button.b2{background:transparent;color:var(--gold);border:2px solid var(--gold);box-shadow:none;animation:none;font-size:16px;padding:12px 26px;margin-top:14px}
+.pt{font-size:13px;margin:12px 0 0}
+h1{font-family:"UnifrakturCook","Old English Text MT",Georgia,serif;font-size:clamp(46px,14vw,86px);margin:0;font-weight:700;color:var(--fg);text-shadow:0 0 26px rgba(212,162,76,.55)}
+.sub{letter-spacing:6px;color:var(--gold);font-size:13px;margin:0 0 14px}
+p{max-width:340px;color:var(--mut);line-height:1.45;margin:6px 0 16px;font-size:16px}
+button{font:inherit;font-weight:800;font-size:18px;color:#120d04;background:linear-gradient(90deg,#f1c76b,var(--gold));border:0;border-radius:999px;padding:16px 34px;cursor:pointer;box-shadow:0 0 28px rgba(212,162,76,.5);animation:pulse 1.4s infinite}
+button.s{background:transparent;color:var(--mut);box-shadow:none;animation:none;font-size:15px;margin-top:10px;padding:10px}
+@keyframes pulse{50%{transform:scale(1.06)}}
+.tier{font-size:clamp(38px,11vw,60px);font-weight:900;color:var(--gold);text-shadow:0 0 24px rgba(212,162,76,.7);margin:0}
+.code{margin:10px 0;padding:12px 22px;border:2px dashed var(--gold);border-radius:12px;font-size:26px;font-weight:900;letter-spacing:4px;color:var(--gold);cursor:pointer;animation:pop .5s both}
+@keyframes pop{0%{transform:scale(.2);opacity:0}70%{transform:scale(1.15)}100%{transform:scale(1);opacity:1}}
+.near{color:var(--grn);font-weight:700}
+.tm{color:var(--red);font-weight:800}
+@media (prefers-reduced-motion:reduce){button,.code{animation:none}}
+</style></head><body>
+<canvas id="c"></canvas>
+<div class="ov" id="ov"></div>
+<script>
+// ===== EDIT THESE =====
+const CFG={
+  brand:"dp on dat",
+  url:"https://linktr.ee/tiktokdpondat", // swap in your Whop link
+  cta:"Claim my discount",
+  tiktok:"https://www.tiktok.com/@dpondat",
+  discord:"https://discord.gg/q53q5W2mu",
+  handle:"@dpondat",
+  tiers:[[100,"5% OFF"],[350,"10% OFF"],[800,"20% OFF"]], // keep in sync with TIERS in api/run.js
+  gameUrl:location.origin+"/",
+  maxTries:3, // tries per day (set 99 to test)
+  pitch:"2K26 + 2K27 scripts. Instant access on Whop."
+};
+// ======================
+const cv=document.getElementById("c"),ctx=cv.getContext("2d"),ov=document.getElementById("ov");
+let W,H,D=Math.min(devicePixelRatio||1,2);
+function rs(){W=innerWidth;H=innerHeight;cv.width=W*D;cv.height=H*D;ctx.setTransform(D,0,0,D,0,0)}
+addEventListener("resize",rs);rs();
+let AC;function snd(f,d,t,v){try{AC=AC||new (window.AudioContext||window.webkitAudioContext)();const o=AC.createOscillator(),g=AC.createGain();o.type=t||"sine";o.frequency.value=f;g.gain.value=v||.08;g.gain.exponentialRampToValueAtTime(.0001,AC.currentTime+d);o.connect(g);g.connect(AC.destination);o.start();o.stop(AC.currentTime+d)}catch(e){}}
+let best=0;try{best=+localStorage.getItem("gw_best")||0}catch(e){}
+let ease=0,rl=[],st="menu",score,shots,streak,mult,m,v,gz,gw,ball,parts=[],txts=[],shake=0,flash=0,wait=0,fire=0;
+const PI=Math.PI;
+let tok=null,lastRun=null,pend=false,failed=false;
+let OWN=false;try{OWN=localStorage.getItem("gw_owner")==="1"}catch(e){}
+function own(){const h=ov.querySelector("h1");if(!h)return;let c=0;h.onclick=()=>{if(++c>=7){OWN=!OWN;try{localStorage.setItem("gw_owner",OWN?"1":"0")}catch(e){}menu()}}}
+function ld(){const D0=new Date().toDateString();try{const o=JSON.parse(localStorage.getItem("gw_d")||"{}");const r=o.d===D0?o:{d:D0,n:0,b:0,ti:-1};if(OWN)r.n=0;return r}catch(e){return{d:D0,n:0,b:0,ti:-1}}}
+function sv(o){try{localStorage.setItem("gw_d",JSON.stringify(o))}catch(e){}}
+function menu(){const o=ld();if(o.n>=CFG.maxTries){show(o,-1);return}st="menu";ov.className="ov";ov.innerHTML=`<h1>${CFG.brand}</h1><p class="sub">GREEN WINDOW</p><p>10 shots. Tap when the marker hits the green. Chain swishes to heat up and unlock a discount.</p><p class="near">Hit ${CFG.tiers[2][0]}+ for ${CFG.tiers[2][1]}</p><p>${OWN?"Owner mode: unlimited tries.":(CFG.maxTries-o.n)+" tries left today."} Your best score today counts.</p><button id="go">TAP TO PLAY</button>${best?`<p>Your best: ${best}</p>`:""}`;document.getElementById("go").onclick=start;own()}
+function start(){rl=[];ease=0;score=0;shots=10;streak=0;mult=1;parts=[];txts=[];ball=null;ov.className="ov hide";tok=null;fetch("/api/run",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"start"})}).then(x=>x.json()).then(j=>{tok=j.token}).catch(()=>{});nextShot();snd(520,.15,"triangle")}
+function nextShot(){const n=10-shots;m=0;v=1.25+n*.12;gw=Math.min(.15,Math.max(.042,.107-n*.0075-Math.min(streak,6)*.003)+ease);gz=.55+Math.random()*.33;ball=null;st="aim"}
+function burst(x,y,n,sp,h){for(let i=0;i<n;i++){const a=Math.random()*6.283,s=(Math.random()*.7+.3)*sp;parts.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,l:1,h:h||40})}}
+function say(x,y,t,c){txts.push({x,y,t,c,l:1})}
+const HX=()=>W/2,HY=()=>H*.3,BX=()=>W/2,BY=()=>H*.74;
+function shoot(){
+  if(st!=="aim")return;
+  const d=Math.abs(m-gz),h=gw/2,res=d<h*.3?2:d<h?1:d<h+.026?3:0;
+  ball={t:0,res,x:BX(),y:BY(),vx:0,vy:0,a:1};st="fly";snd(240,.12,"triangle",.06);
+}
+function land(){
+  const b=ball,r=b.res;rl.push(r);ease=r>=1?0:Math.min(.02,ease+.01);st="after";wait=.95;
+  if(r>=1){
+    const pts=(r===2?30:20)*mult;score+=pts;streak++;mult=Math.min(5,1+streak);
+    shake=r===2?12:7;flash=r===2?.35:.15;burst(HX(),HY()+10,r===2?46:28,420,r===2?48:140);
+    say(HX(),HY()-50,(r===2?"PERFECT +":"SWISH +")+pts,r===2?"#d4a24c":"#39ff88");snd(r===2?980:760,.3,"triangle",.1);setTimeout(()=>snd(1240,.25,"sine",.06),90);
+    b.vy=60;
+  }else{
+    streak=0;mult=1;shake=5;
+    if(r===3){score+=5;say(HX(),HY()-50,"RIM OUT - SO CLOSE","#efe3c8");snd(200,.25,"square",.05)}
+    else{say(HX(),HY()-50,"BRICK","#ff4455");snd(110,.3,"sawtooth",.1)}
+    b.vx=(Math.random()-.5)*340;b.vy=-260;
+  }
+  shots--;
+}
+cv.addEventListener("pointerdown",()=>{if(AC&&AC.state==="suspended")AC.resume();shoot()});
+let last=0;
+function fmt(s){const m=Math.floor(s/60);return Math.floor(m/60)+"h "+(m%60)+"m"}
+function show(o,sc){
+  st="end";const q=id=>document.getElementById(id),left=OWN?99:CFG.maxTries-o.n,b=o.b,live=o.code&&o.exp>Date.now();
+  const nx=CFG.tiers.find(x=>x[0]>b);
+  const em=rl.map(x=>["\ud83d\udd34","\ud83d\udfe2","\ud83d\udfe1","\ud83d\udfe0"][x]).join(""),sc2=sc>=0?sc:b;
+  ov.className="ov";
+  ov.innerHTML=(sc>=0?`<p style="margin:0">This run</p><h1 style="margin:0">${sc}</h1><p style="font-size:24px;margin:4px 0;letter-spacing:2px">${em}</p>`:`<h1 style="margin:0">${CFG.brand}</h1>`)
+   +`<p style="margin:0">Best today: ${b}</p>`
+   +(live?`<p class="tier">${o.pct}% OFF</p><div class="code" id="cd">${o.code}</div><p style="margin:0">Tap code to copy. One use. Paste it at checkout.</p><p class="tm">Expires in <span id="tm"></span></p>`
+     :pend?`<p class="tier">...</p><p>Generating your code</p>`
+     :failed?`<p class="tier">OOPS</p><p>Couldn't get your code.</p><button class="b2" id="retry">Try again</button>`
+     :`<p class="tier">NO CODE YET</p><p>Hit ${CFG.tiers[0][0]} to unlock ${CFG.tiers[0][1]}</p>`)
+   +(nx?`<p class="near">${nx[0]-b} more points unlocks ${nx[1]}</p>`:`<p class="near">Max reward unlocked</p>`)
+   +`<a class="btn" id="cta" href="${CFG.url}" target="_blank">${CFG.cta}</a><p class="pt">${CFG.pitch}</p>`
+   +(left>0?`<button class="b2" id="again">Play again (${OWN?"owner: unlimited":left+" "+(left>1?"tries":"try")+" left today"})</button>`:`<p>No tries left today. Come back tomorrow to beat ${b}.</p>`)
+   +`<input id="nm" maxlength="14" placeholder="Your name (weekly board)" style="font:inherit;font-size:16px;padding:10px 14px;border-radius:10px;border:1px solid #a39880;background:#14110c;color:#efe3c8;text-align:center;margin:10px 0 0;width:min(86%,300px);user-select:text;-webkit-user-select:text"><button class="s" id="sub" style="color:#d4a24c">Submit my best score to the weekly board</button>`
+   +`<p style="margin:2px 0">Share: <a id="wa" href="#" target="_blank" style="color:#d4a24c">WhatsApp</a> &nbsp; <a id="xx" href="#" target="_blank" style="color:#d4a24c">X</a> &nbsp; <a id="cp" href="#" style="color:#d4a24c">Copy</a></p>`
+   +`<p style="margin:4px 0 0"><a href="${CFG.tiktok}" target="_blank" style="color:#d4a24c">TikTok</a> &nbsp; <a href="${CFG.discord}" target="_blank" style="color:#d4a24c">Discord</a></p>`;
+  if(live)q("cd").onclick=e=>{try{navigator.clipboard.writeText(o.code)}catch(x){}e.target.textContent="COPIED";setTimeout(()=>e.target.textContent=o.code,900)};
+  if(q("again"))q("again").onclick=start;
+  if(q("retry"))q("retry").onclick=()=>claim(o);
+  own();
+  q("sub").onclick=e=>{const n=(q("nm").value||"anon").trim().slice(0,14);try{navigator.clipboard.writeText(`LEADERBOARD | ${n} | ${b}`)}catch(x){}e.target.textContent="Copied. Paste it in Discord #leaderboard"};
+  const tx=`Green Window: ${sc2} points\n${em}\nBeat me and unlock a discount. ${CFG.handle}\n${CFG.gameUrl}`,u=encodeURIComponent(tx);
+  q("wa").href="https://wa.me/?text="+u;q("xx").href="https://twitter.com/intent/tweet?text="+u;
+  q("cp").onclick=e=>{e.preventDefault();try{navigator.clipboard.writeText(tx)}catch(x){}e.target.textContent="Copied"};
+  const upd=()=>{const el=q("tm");if(!el||st!=="end"){clearInterval(iv);return}el.textContent=fmt(Math.max(0,(o.exp-Date.now())/1000))};const iv=setInterval(upd,30000);upd();
+}
+function claim(o){
+  const sc=lastRun.score,ti=CFG.tiers.reduce((a,x,i)=>sc>=x[0]?i:a,-1);
+  if(ti<0||ti<=(o.ti??-1)||!tok)return;
+  pend=true;failed=false;show(o,sc);
+  fetch("/api/run",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"claim",token:tok,results:lastRun.rl})})
+  .then(x=>x.json().then(j=>({ok:x.ok,j})))
+  .then(({ok,j})=>{pend=false;if(!ok||!j.code)throw 0;o.code=j.code;o.pct=j.pct;o.exp=Date.parse(j.expiresAt);o.ti=ti;sv(o);show(o,sc);burst(W/2,H/2,60,600,45);snd(660,.4,"triangle");setTimeout(()=>snd(990,.5,"triangle"),150)})
+  .catch(()=>{pend=false;failed=true;show(o,sc)});
+}
+function end(){const o=ld();o.n++;o.b=Math.max(o.b,score);sv(o);if(score>best){best=score;try{localStorage.setItem("gw_best",best)}catch(e){}}lastRun={score,rl:rl.slice()};show(o,score);claim(o)}
+function loop(ts){
+  const dt=Math.min((ts-last)/1000||0,.05);last=ts;
+  ctx.save();ctx.fillStyle="rgba(9,8,10,.35)";ctx.fillRect(0,0,W,H);
+  if(shake>0){ctx.translate((Math.random()-.5)*shake,(Math.random()-.5)*shake);shake=Math.max(0,shake-50*dt)}
+  // court glow
+  const g=ctx.createRadialGradient(W/2,H*.8,10,W/2,H*.8,H*.6);g.addColorStop(0,"rgba(212,162,76,.16)");g.addColorStop(1,"rgba(212,162,76,0)");ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+  // hoop
+  const hx=HX(),hy=HY(),bw=Math.min(120,W*.3);
+  ctx.strokeStyle="#efe3c8";ctx.lineWidth=3;ctx.strokeRect(hx-bw/2,hy-90,bw,70);ctx.strokeRect(hx-bw*.18,hy-50,bw*.36,28);
+  ctx.strokeStyle="#ff7a3c";ctx.lineWidth=4;ctx.beginPath();ctx.ellipse(hx,hy,26,7,0,0,PI*2);ctx.stroke();
+  ctx.strokeStyle="rgba(239,227,200,.55)";ctx.lineWidth=1.5;for(let i=-3;i<=3;i++){ctx.beginPath();ctx.moveTo(hx+i*7.5,hy+2);ctx.lineTo(hx+i*4,hy+34);ctx.stroke()}
+  // game logic
+  if(st==="aim"){m+=v*dt;if(m>=1){m=1;shoot()}}
+  if(st==="fly"){const b=ball;b.t+=dt/.7;const k=Math.min(b.t,1);b.x=BX()+(HX()-BX())*k;b.y=BY()+(HY()-BY())*k-Math.sin(PI*k)*H*.13;if(b.t>=1)land()}
+  if(st==="after"){const b=ball;b.x+=b.vx*dt;b.y+=b.vy*dt;if(b.res>=1){b.vy+=500*dt;b.a=Math.max(0,b.a-dt*1.4)}else{b.vy+=900*dt;b.a=Math.max(0,b.a-dt*.9)}wait-=dt;if(wait<=0){if(shots<=0)end();else nextShot()}}
+  // ball
+  if(ball||st==="aim"){
+    const bx=ball?ball.x:BX(),by=ball?ball.y:BY(),a=ball?ball.a:1;
+    if(streak>=3){ctx.globalCompositeOperation="lighter";const f=ctx.createRadialGradient(bx,by,0,bx,by,60);f.addColorStop(0,"rgba(255,140,40,.8)");f.addColorStop(1,"rgba(255,80,0,0)");ctx.fillStyle=f;ctx.beginPath();ctx.arc(bx,by,60,0,7);ctx.fill();ctx.globalCompositeOperation="source-over"}
+    ctx.globalAlpha=a;const bg=ctx.createRadialGradient(bx-6,by-6,2,bx,by,22);bg.addColorStop(0,"#ffae5c");bg.addColorStop(1,"#c2531a");ctx.fillStyle=bg;ctx.beginPath();ctx.arc(bx,by,22,0,7);ctx.fill();
+    ctx.strokeStyle="#3a1608";ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(bx,by,22,0,7);ctx.moveTo(bx-22,by);ctx.lineTo(bx+22,by);ctx.moveTo(bx,by-22);ctx.lineTo(bx,by+22);ctx.stroke();ctx.globalAlpha=1;
+  }
+  // particles
+  ctx.globalCompositeOperation="lighter";
+  for(let i=parts.length-1;i>=0;i--){const p=parts[i];p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy+=500*dt;p.l-=dt*1.5;if(p.l<=0){parts.splice(i,1);continue}ctx.fillStyle=`hsla(${p.h},100%,62%,${p.l})`;ctx.beginPath();ctx.arc(p.x,p.y,2+p.l*3,0,7);ctx.fill()}
+  ctx.globalCompositeOperation="source-over";
+  ctx.textAlign="center";ctx.fillStyle="rgba(212,162,76,.55)";ctx.font="700 13px Trebuchet MS,sans-serif";ctx.fillText(CFG.brand+" | "+CFG.handle,W/2,H-8);
+  // meter
+  if(st==="aim"||st==="fly"||st==="after"){
+    const mw=Math.min(W-48,420),x0=(W-mw)/2,my=H*.9-14,mh=24;
+    ctx.fillStyle="rgba(239,227,200,.1)";ctx.fillRect(x0,my,mw,mh);
+    ctx.fillStyle="rgba(57,255,136,.35)";ctx.fillRect(x0+(gz-gw/2)*mw,my,gw*mw,mh);
+    ctx.fillStyle="#39ff88";ctx.fillRect(x0+(gz-gw*.15)*mw,my,gw*.3*mw,mh);
+    ctx.strokeStyle="rgba(239,227,200,.4)";ctx.lineWidth=2;ctx.strokeRect(x0,my,mw,mh);
+    ctx.fillStyle="#efe3c8";ctx.fillRect(x0+m*mw-3,my-7,6,mh+14);
+    if(st==="aim"){ctx.fillStyle="#a39880";ctx.font="700 14px Trebuchet MS,sans-serif";ctx.textAlign="center";ctx.fillText("TAP IN THE GREEN",W/2,my+mh+26)}
+    // HUD
+    ctx.textAlign="left";ctx.fillStyle="#efe3c8";ctx.font="900 34px Trebuchet MS,sans-serif";ctx.fillText(score,18,48);
+    ctx.textAlign="right";ctx.fillText("Shots "+Math.max(shots,0),W-18,48);
+    ctx.textAlign="center";ctx.fillStyle=streak>=3?"#ff8c28":"#d4a24c";ctx.font="900 20px Trebuchet MS,sans-serif";ctx.fillText(streak>=3?"ON FIRE x"+mult:(mult>1?"HEAT x"+mult:""),W/2,44);
+    const nx=CFG.tiers.find(x=>x[0]>score);if(nx){ctx.fillStyle="#a39880";ctx.font="700 14px Trebuchet MS,sans-serif";ctx.fillText(nx[0]-score+" to "+nx[1],W/2,68)}
+  }
+  for(let i=txts.length-1;i>=0;i--){const t=txts[i];t.y-=50*dt;t.l-=dt*.9;if(t.l<=0){txts.splice(i,1);continue}ctx.globalAlpha=Math.min(1,t.l*1.5);ctx.fillStyle=t.c;ctx.font="900 26px Trebuchet MS,sans-serif";ctx.textAlign="center";ctx.fillText(t.t,t.x,t.y);ctx.globalAlpha=1}
+  ctx.restore();
+  if(flash>0){ctx.fillStyle=`rgba(255,240,200,${flash*.4})`;ctx.fillRect(0,0,W,H);flash=Math.max(0,flash-dt*2)}
+  requestAnimationFrame(loop);
+}
+menu();requestAnimationFrame(loop);
+</script></body></html>
